@@ -1,5 +1,4 @@
-import React from 'react';
-import { ArrowLeft, PieChart, TrendingUp, Database, Download } from 'lucide-react';
+import { ArrowLeft, PieChart, TrendingUp, Database } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 interface AnalyticsProps {
@@ -7,7 +6,7 @@ interface AnalyticsProps {
 }
 
 export function Analytics({ onBack }: AnalyticsProps) {
-  const { mappingRecords, patients } = useData();
+  const { mappingRecords } = useData();
 
   const getAnalyticsData = () => {
     const totalMappings = mappingRecords.length;
@@ -58,7 +57,6 @@ export function Analytics({ onBack }: AnalyticsProps) {
     return (
       <svg width="200" height="200" viewBox="0 0 200 200" className="mx-auto">
         {data.map((item, index) => {
-          const percentage = (item.value / total) * 100;
           const angle = (item.value / total) * 360;
           const startAngle = currentAngle;
           const endAngle = currentAngle + angle;

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Plus, Search, User, Phone, Calendar, Users } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import type { Patient } from '../context/DataContext';
 
 interface PatientRegistrationProps {
   onBack: () => void;

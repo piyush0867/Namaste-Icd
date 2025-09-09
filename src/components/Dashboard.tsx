@@ -1,10 +1,9 @@
-import React from 'react';
 import { Users, MapPin as Mapping, FileText, BarChart3, LogOut, Stethoscope, Activity, Database } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 
 interface DashboardProps {
-  onNavigate: (view: 'dashboard' | 'patients' | 'mapping' | 'records' | 'analytics') => void;
+  onNavigate: (view: 'dashboard' | 'patients' | 'problems' | 'encounters' | 'mapping' | 'records' | 'fhir-upload' | 'analytics') => void;
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
@@ -22,6 +21,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       count: patients.length
     },
     {
+      title: 'Problem List',
+      description: 'View and manage patient problems with dual coding',
+      icon: FileText,
+      color: 'bg-red-500',
+      hoverColor: 'hover:bg-red-600',
+      action: () => onNavigate('problems'),
+      count: mappingRecords.length
+    },
+    {
+      title: 'Encounters',
+      description: 'Record and view patient encounters and visits',
+      icon: Stethoscope,
+      color: 'bg-indigo-500',
+      hoverColor: 'hover:bg-indigo-600',
+      action: () => onNavigate('encounters'),
+      count: null
+    },
+    {
       title: 'Mapping Tool',
       description: 'Map NAMASTE codes to ICD-11 standards',
       icon: Mapping,
@@ -33,11 +50,20 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     {
       title: 'View Records',
       description: 'Browse and search all mapping records',
-      icon: FileText,
+      icon: Database,
       color: 'bg-purple-500',
       hoverColor: 'hover:bg-purple-600',
       action: () => onNavigate('records'),
       count: mappingRecords.length
+    },
+    {
+      title: 'FHIR Upload',
+      description: 'Upload FHIR bundles with dual coding',
+      icon: FileText,
+      color: 'bg-orange-500',
+      hoverColor: 'hover:bg-orange-600',
+      action: () => onNavigate('fhir-upload'),
+      count: null
     },
     {
       title: 'Analytics',

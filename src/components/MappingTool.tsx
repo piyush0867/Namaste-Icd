@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Search, Database, CheckCircle, AlertCircle, HelpCircle, Save } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import type { NAMASTECode, ICDCode, Patient } from '../context/DataContext';
-import { sampleData } from '../data/sampleData';
+import { apiService, NAMASTECode, ICDCode } from '../services/apiService';
 
 interface MappingToolProps {
   onBack: () => void;
@@ -15,7 +14,7 @@ interface MappingSuggestion {
 }
 
 export function MappingTool({ onBack }: MappingToolProps) {
-  const { patients, addMappingRecord, searchNAMASTECodes, searchICDCodes } = useData();
+  const { patients, addMappingRecord, searchNAMASTECodes, searchICDCodes, icdData } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<string>('');
   const [selectedNAMASTECode, setSelectedNAMASTECode] = useState<NAMASTECode | null>(null);
@@ -26,14 +25,15 @@ export function MappingTool({ onBack }: MappingToolProps) {
   const namasteResults = searchNAMASTECodes(searchQuery);
   const icdResults = searchICDCodes(searchQuery);
 
-  const handleNAMASTESelection = (code: NAMASTECode) => {
+  const handleNAMASTESelection = async (code: NAMASTECode) => {
     setSelectedNAMASTECode(code);
-    
-    // Get suggestions for this NAMASTE code
-    const codeSuggestions = sampleData.mappingSuggestions[code.code as keyof typeof sampleData.mappingSuggestions];
-    if (codeSuggestions) {
+
+    // Get suggestions for this NAMASTE code from API
+    try {
+      const codeSuggestions = await apiService.getMappingSuggestions(code.code);
       setSuggestions(codeSuggestions);
-    } else {
+    } catch (error) {
+      console.error('Error getting mapping suggestions:', error);
       setSuggestions([]);
     }
   };
@@ -48,6 +48,29 @@ export function MappingTool({ onBack }: MappingToolProps) {
   const handleSaveMapping = () => {
     if (!selectedPatient || !selectedNAMASTECode || !selectedICDCode) return;
 
+    const fhirData = {
+      resourceType: "Condition",
+      id: `cond-${Date.now()}`,
+      subject: { reference: `Patient/${selectedPatient}` },
+      code: {
+        coding: [
+          {
+            system: "NAMASTE",
+            code: selectedNAMASTECode.code,
+            display: selectedNAMASTECode.name
+          },
+          {
+            system: "ICD-11",
+            code: selectedICDCode.code,
+            display: selectedICDCode.name
+          }
+        ]
+      },
+      meta: {
+        profile: ["http://hl7.org/fhir/StructureDefinition/Condition"]
+      }
+    };
+
     addMappingRecord({
       patientId: selectedPatient,
       namasteCode: selectedNAMASTECode.code,
@@ -55,7 +78,7 @@ export function MappingTool({ onBack }: MappingToolProps) {
       icdCode: selectedICDCode.code,
       icdName: selectedICDCode.name,
       mappingType,
-      fhirData: {} // Will be generated in context
+      fhirData
     });
 
     // Reset form
@@ -170,7 +193,7 @@ export function MappingTool({ onBack }: MappingToolProps) {
                 <h3 className="font-medium text-gray-900 mb-4">Suggested ICD-11 Mappings</h3>
                 <div className="space-y-3">
                   {suggestions.map((suggestion) => {
-                    const icdCode = sampleData.icdData.find(icd => icd.code === suggestion.icdCode);
+                    const icdCode = icdData.find((icd: ICDCode) => icd.code === suggestion.icdCode);
                     if (!icdCode) return null;
                     
                     return (
@@ -351,11 +374,4 @@ export function MappingTool({ onBack }: MappingToolProps) {
   );
 }
 
-function getMappingTypeIcon(type: string) {
-  switch (type) {
-    case 'exact': return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'approximate': return <AlertCircle className="h-4 w-4 text-orange-500" />;
-    case 'partial': return <HelpCircle className="h-4 w-4 text-blue-500" />;
-    default: return null;
-  }
-}
+

@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiService, ICDCode, NAMASTECode } from '../services/apiService';
 import { sampleData } from '../data/sampleData';
+
+export type { ICDCode, NAMASTECode };
 
 export interface Patient {
   id: string;
@@ -8,6 +11,31 @@ export interface Patient {
   gender: 'male' | 'female' | 'other';
   contact: string;
   createdAt: string;
+}
+
+interface FHIRCondition {
+  resourceType: string;
+  id: string;
+  subject: { reference: string };
+  code: {
+    coding: Array<{
+      system: string;
+      code: string;
+      display: string;
+    }>;
+  };
+  meta: {
+    profile: string[];
+  };
+}
+
+interface AuditDetails {
+  action: string;
+  resourceType: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  changes?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 export interface MappingRecord {
@@ -19,32 +47,34 @@ export interface MappingRecord {
   icdName: string;
   mappingType: 'exact' | 'approximate' | 'partial';
   createdAt: string;
-  fhirData: any;
+  fhirData: FHIRCondition;
 }
 
-export interface NAMASTECode {
-  code: string;
-  name: string;
-  description: string;
-  system: string;
+export interface AuditLog {
+  id: string;
+  action: string;
+  userId: string;
+  patientId?: string;
+  resourceType: string;
+  resourceId: string;
+  timestamp: string;
+  details: AuditDetails;
 }
 
-export interface ICDCode {
-  code: string;
-  name: string;
-  category: string;
-}
+
 
 interface DataContextType {
   patients: Patient[];
   mappingRecords: MappingRecord[];
   namasteData: NAMASTECode[];
   icdData: ICDCode[];
+  isLoading: boolean;
   addPatient: (patient: Omit<Patient, 'id' | 'createdAt'>) => void;
   addMappingRecord: (record: Omit<MappingRecord, 'id' | 'createdAt'>) => void;
   searchNAMASTECodes: (query: string) => NAMASTECode[];
   searchICDCodes: (query: string) => ICDCode[];
   exportFHIRData: () => void;
+  refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -52,8 +82,9 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [mappingRecords, setMappingRecords] = useState<MappingRecord[]>([]);
-  const [namasteData] = useState<NAMASTECode[]>(sampleData.namasteData);
-  const [icdData] = useState<ICDCode[]>(sampleData.icdData);
+  const [namasteData, setNamasteData] = useState<NAMASTECode[]>(sampleData.namasteData);
+  const [icdData, setIcdData] = useState<ICDCode[]>(sampleData.icdData);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Load data from localStorage on initialization
@@ -140,6 +171,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const refreshData = async () => {
+    setIsLoading(true);
+    try {
+      const [namasteCodes, icdCodes] = await Promise.all([
+        apiService.fetchNAMASTECodes(),
+        apiService.fetchICDCodes()
+      ]);
+      setNamasteData(namasteCodes);
+      setIcdData(icdCodes);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      // Keep existing data if API fails
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const exportFHIRData = () => {
     const fhirBundle = {
       resourceType: "Bundle",
@@ -152,9 +200,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const dataStr = JSON.stringify(fhirBundle, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+
     const exportFileDefaultName = `fhir-export-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -167,11 +215,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mappingRecords,
       namasteData,
       icdData,
+      isLoading,
       addPatient,
       addMappingRecord,
       searchNAMASTECodes,
       searchICDCodes,
-      exportFHIRData
+      exportFHIRData,
+      refreshData
     }}>
       {children}
     </DataContext.Provider>
